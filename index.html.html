@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DX Helper — Live Amateur Radio Station Queue</title>
+    <meta name="description" content="Live DX station queue and contact request dashboard." />
+    <meta name="keywords" content="amateur radio, ham radio, DX, QSO, queue" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        tactical: {
+                            950: '#090d16',
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        figure { margin: 0; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        .glow-green { box-shadow: 0 0 15px rgba(34, 197, 94, 0.25); }
+        .glow-blue  { box-shadow: 0 0 15px rgba(59, 130, 246, 0.25); }
+        .mono-font  { font-family: 'JetBrains Mono', monospace; }
+        .skip-link {
+            position: absolute; left: -9999px; top: 0;
+            background: #1e293b; color: #fff; padding: 8px 14px;
+            border-radius: 8px; z-index: 100; text-decoration: none;
+        }
+        .skip-link:focus { left: 12px; top: 12px; }
+        body { background: #090d16; }
+    </style>
+</head>
+<body class="page-36007465 pagelayout-1 index slogan culture-en bg-tactical-950 text-slate-200 min-h-screen flex flex-col">
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<!-- ================= HEADER ================= -->
+<header class="sticky top-0 z-40 bg-tactical-900/90 backdrop-blur-md border-b border-slate-800 px-4 lg:px-8 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+        <!-- Brand / Station Callsign -->
+        <div class="flex items-center space-x-3">
+            <div class="p-2.5 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-400">
+                <i class="fa-solid fa-tower-cell text-xl"></i>
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <span id="nav-callsign" class="text-xl font-black tracking-wider mono-font text-white">ZL2BB</span>
+                    <span id="nav-status-badge" class="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 glow-green">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span id="nav-status-text">ONLINE</span>
+                    </span>
+                </div>
+                <p class="text-xs text-slate-400 flex items-center gap-2">
+                    <span>Grid: <strong id="nav-grid" class="text-slate-200 mono-font">RF82BE</strong></span>
+                    <span>•</span>
+                    <span>Rig: <span id="nav-rig" class="text-slate-300">Yaesu FTdx10</span></span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Operating Parameters Bar -->
+        <div class="hidden md:flex items-center space-x-4 bg-tactical-950/90 px-4 py-2 rounded-xl border border-slate-800">
+            <div class="text-center border-r border-slate-800 pr-4">
+                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">BAND</span>
+                <span id="nav-band" class="text-sm font-bold text-blue-400 mono-font">20m</span>
+            </div>
+            <div class="text-center border-r border-slate-800 pr-4">
+                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">FREQUENCY</span>
+                <span id="nav-freq" class="text-sm font-bold text-emerald-400 mono-font">14.225 MHz</span>
+            </div>
+            <div class="text-center">
+                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">MODE</span>
+                <span id="nav-mode" class="text-sm font-bold text-amber-400 mono-font">SSB</span>
+            </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex items-center space-x-3">
+            <button onclick="toggleAudioAlert()" id="audio-toggle-btn" title="Toggle audio announcements" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors">
+                <i id="audio-icon" class="fa-solid fa-volume-xmark"></i>
+            </button>
+            <button onclick="openAdminModal()" class="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-blue-500/20 transition-all border border-blue-400/30">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>Operator Portal</span>
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- ================= TOAST ================= -->
+<div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-tactical-900 border border-slate-700 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 pointer-events-none">
+    <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+    <div id="toast-message" class="text-xs font-semibold">Notification</div>
+</div>
+
+<!-- ================= MAIN ================= -->
+<main id="main-content" class="flex-grow max-w-7xl w-full mx-auto px-4 lg:px-8 py-8 space-y-8">
+
+    <!-- Mobile Operating Info Banner -->
+    <div class="md:hidden grid grid-cols-3 gap-2 bg-tactical-900 p-3 rounded-xl border border-slate-800 text-center">
+        <div>
+            <span class="text-[10px] text-slate-400 font-semibold uppercase block">BAND</span>
+            <span id="nav-band-mobile" class="text-xs font-bold text-blue-400 mono-font">20m</span>
+        </div>
+        <div>
+            <span class="text-[10px] text-slate-400 font-semibold uppercase block">FREQ</span>
+            <span id="nav-freq-mobile" class="text-xs font-bold text-emerald-400 mono-font">14.225 MHz</span>
+        </div>
+        <div>
+            <span class="text-[10px] text-slate-400 font-semibold uppercase block">MODE</span>
+            <span id="nav-mode-mobile" class="text-xs font-bold text-amber-400 mono-font">SSB</span>
+        </div>
+    </div>
+
+    <!-- Station Info Header Banner -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-tactical-900 via-slate-900 to-tactical-950 border border-slate-800 p-6 lg:p-8 shadow-xl">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col lg:flex-row justify-between lg:items-center gap-6">
+            <div class="space-y-2 max-w-2xl">
+                <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                    <span>Live DX Operating Station</span>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    DX Contact Request &amp; Queue Control
+                </h1>
+                <p class="text-slate-400 text-xs sm:text-sm leading-relaxed" id="station-notice">
+                    Welcome to the official DX queue for <span class="text-blue-400 font-bold mono-font">ZL2BB</span>. Submit your station details below to request a QSO!
+                </p>
+            </div>
+
+            <div class="flex flex-wrap lg:flex-nowrap gap-3 text-center">
+                <div class="bg-tactical-950/80 border border-slate-800 rounded-xl p-3.5 min-w-[100px] flex-1">
+                    <span class="text-slate-400 text-[11px] font-semibold block">In Queue</span>
+                    <span id="stat-queue-count" class="text-2xl font-black text-blue-400 mono-font">0</span>
+                </div>
+                <div class="bg-tactical-950/80 border border-slate-800 rounded-xl p-3.5 min-w-[100px] flex-1">
+                    <span class="text-slate-400 text-[11px] font-semibold block">Est. Wait</span>
+                    <span id="stat-est-wait" class="text-2xl font-black text-emerald-400 mono-font">0m</span>
+                </div>
+                <div class="bg-tactical-950/80 border border-slate-800 rounded-xl p-3.5 min-w-[100px] flex-1">
+                    <span class="text-slate-400 text-[11px] font-semibold block">QSOs Today</span>
+                    <span id="stat-logged-count" class="text-2xl font-black text-purple-400 mono-font">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Grid: Public Request + Live Queue -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- ============ JOIN QUEUE FORM ============ -->
+        <div class="lg:col-span-5 xl:col-span-4">
+            <div class="bg-tactical-900 border border-slate-800 rounded-2xl p-6 shadow-xl sticky top-24">
+                <div class="flex items-center space-x-3 mb-5 border-b border-slate-800 pb-4">
+                    <div class="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+                        <i class="fa-solid fa-paper-plane text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-white">Join Station Queue</h2>
+                        <p class="text-xs text-slate-400">Request contact with active DX operator</p>
+                    </div>
+                </div>
+
+                <form id="join-queue-form" onsubmit="handleJoinQueue(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Your Callsign <span class="text-rose-400">*</span></label>
+                        <div class="relative">
+                            <input type="text" id="input-callsign" required maxlength="12" placeholder="e.g. K1ABC" class="w-full bg-tactical-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none text-base tracking-wider placeholder:text-slate-600">
+                            <span class="absolute right-3.5 top-3 text-slate-500 text-xs"><i class="fa-solid fa-radio"></i></span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Grid Square <span class="text-rose-400">*</span></label>
+                            <input type="text" id="input-grid" required maxlength="8" placeholder="e.g. FN31" class="w-full bg-tactical-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none text-xs placeholder:text-slate-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Your RST</label>
+                            <input type="text" id="input-rst" value="59" maxlength="4" class="w-full bg-tactical-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:ring-2 focus:ring-blue-500 outline-none text-xs">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Band</label>
+                            <select id="input-band" class="w-full bg-tactical-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:ring-2 focus:ring-blue-500 outline-none text-xs">
+                                <option value="160m">160m</option>
+                                <option value="80m">80m</option>
+                                <option value="40m">40m</option>
+                                <option value="30m">30m</option>
+                                <option value="20m" selected>20m</option>
+                                <option value="17m">17m</option>
+                                <option value="15m">15m</option>
+                                <option value="12m">12m</option>
+                                <option value="10m">10m</option>
+                                <option value="6m">6m</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Mode</label>
+                            <select id="input-mode" class="w-full bg-tactical-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:ring-2 focus:ring-blue-500 outline-none text-xs">
+                                <option value="SSB" selected>SSB</option>
+                                <option value="FT8">FT8</option>
+                                <option value="CW">CW</option>
+                                <option value="FT4">FT4</option>
+                                <option value="AM">AM</option>
+                                <option value="FM">FM</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">Notes / Offset (Optional)</label>
+                        <input type="text" id="input-notes" maxlength="40" placeholder="e.g. Split +1.5kHz / QRP 5W" class="w-full bg-tactical-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-600">
+                    </div>
+
+                    <button type="submit" id="btn-submit-queue" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center space-x-2 mt-2">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>Submit Queue Entry</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============ QUEUE + LOGS ============ -->
+        <div class="lg:col-span-7 xl:col-span-8 space-y-6">
+
+            <!-- Queue panel -->
+            <div class="bg-tactical-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>Live Station Waiting Queue</span>
+                            <span class="relative flex h-2.5 w-2.5">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                            </span>
+                        </h2>
+                        <p class="text-xs text-slate-400">Order of stations awaiting contact</p>
+                    </div>
+
+                    <div class="relative">
+                        <input type="text" id="queue-search" oninput="renderQueueTable()" placeholder="Search callsign..." class="bg-tactical-950 border border-slate-800 rounded-xl px-3 py-1.5 pl-8 text-xs text-white focus:outline-none focus:border-slate-600">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
+                    </div>
+                </div>
+
+                <!-- Currently Active Contact Banner -->
+                <div id="active-contact-card" class="hidden bg-gradient-to-r from-blue-950/80 via-indigo-950/50 to-tactical-900 border border-blue-500/40 rounded-xl p-4 glow-blue relative overflow-hidden">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400 flex items-center justify-center text-blue-400">
+                                <i class="fa-solid fa-broadcast-tower animate-pulse"></i>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-blue-400 uppercase tracking-widest block">CURRENTLY ON AIR WITH</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="active-callsign" class="text-xl font-black text-white mono-font">---</span>
+                                    <span id="active-grid" class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 mono-font">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-slate-400 block">Signal: <strong id="active-rst" class="text-white mono-font">59</strong></span>
+                            <span class="text-[10px] text-emerald-400 font-mono font-bold">QSO IN PROGRESS</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="text-slate-400 uppercase border-b border-slate-800/80 font-bold tracking-wider">
+                                <th class="py-3 px-3">Pos</th>
+                                <th class="py-3 px-3">Callsign</th>
+                                <th class="py-3 px-3">Grid</th>
+                                <th class="py-3 px-3">RST</th>
+                                <th class="py-3 px-3">Mode/Band</th>
+                                <th class="py-3 px-3">Added</th>
+                                <th class="py-3 px-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-table-body" class="divide-y divide-slate-800/50 text-slate-300"></tbody>
+                    </table>
+                </div>
+
+                <div id="queue-empty-msg" class="hidden py-10 text-center text-slate-500 space-y-1">
+                    <i class="fa-solid fa-inbox text-3xl text-slate-600 block mb-2"></i>
+                    <p class="text-xs font-semibold text-slate-400">The queue is currently empty!</p>
+                    <p class="text-[11px] text-slate-600">Be the first to submit a request above.</p>
+                </div>
+            </div>
+
+            <!-- Logged contacts panel -->
+            <div class="bg-tactical-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-purple-400"></i>
+                        <span>Recently Logged Contacts (QSO Log)</span>
+                    </h3>
+                    <span id="logged-count-badge" class="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full font-mono">0 QSOs</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="text-slate-400 uppercase border-b border-slate-800/60 font-bold">
+                                <th class="py-2 px-3">Time (UTC)</th>
+                                <th class="py-2 px-3">Callsign</th>
+                                <th class="py-2 px-3">Grid</th>
+                                <th class="py-2 px-3">Band</th>
+                                <th class="py-2 px-3">Mode</th>
+                                <th class="py-2 px-3">RST Sent/Rcvd</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-logs-body" class="divide-y divide-slate-800/30 text-slate-400 font-mono"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<!-- ================= FOOTER ================= -->
+<footer class="mt-auto border-t border-slate-800/80 bg-tactical-950 py-6 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-broadcast-tower text-blue-500"></i>
+            <span class="font-semibold text-slate-400">DX Helper Station Dashboard</span>
+            <span>• 73 &amp; Good DX!</span>
+        </div>
+        <div class="flex items-center space-x-4 text-slate-400">
+            <button onclick="resetDemoData()" class="hover:text-blue-400 transition-colors">Reset Demo Data</button>
+            <span>•</span>
+            <span id="footer-time" class="mono-font text-slate-500">UTC: --:--:--</span>
+        </div>
+    </div>
+</footer>
+
+<!-- ================= ADMIN MODAL ================= -->
+<div id="admin-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4">
+
+    <!-- Login card -->
+    <div id="admin-login-card" class="bg-tactical-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-5">
+        <button onclick="closeAdminModal()" class="absolute top-4 right-4 text-slate-500 hover:text-white">
+            <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+        <div class="text-center space-y-1">
+            <div class="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-2">
+                <i class="fa-solid fa-lock text-xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white">Station Operator Authentication</h3>
+            <p class="text-xs text-slate-400">Enter Admin PIN to open control panel</p>
+        </div>
+
+        <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">PIN</label>
+                <input type="password" id="admin-pin-input" required placeholder="Enter PIN" class="w-full bg-tactical-950 border border-slate-800 rounded-xl px-4 py-2.5 text-center text-lg font-mono text-white focus:ring-2 focus:ring-blue-500 outline-none tracking-widest">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl shadow-lg transition-all">
+                Unlock Console
+            </button>
+        </form>
+    </div>
+
+    <!-- Admin panel -->
+    <div id="admin-panel-card" class="bg-tactical-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl hidden space-y-6">
+
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-xl">
+                    <i class="fa-solid fa-sliders text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white">DX Station Console</h3>
+                    <p class="text-xs text-slate-400">Queue management &amp; operator settings</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="logoutAdmin()" class="text-xs text-rose-400 hover:text-rose-300 bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-lg font-semibold">
+                    <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
+                </button>
+                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-tactical-950 border border-slate-800 rounded-xl p-4 space-y-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <i class="fa-solid fa-tower-broadcast text-blue-400"></i>
+                <span>Station Parameters &amp; Status</span>
+            </h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Status</label>
+                    <select id="admin-status-select" onchange="updateStationStatus()" class="w-full bg-tactical-900 border border-slate-800 text-white rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+                        <option value="ONLINE">QRV / ONLINE</option>
+                        <option value="PAUSED">PAUSED / BREAK</option>
+                        <option value="QRT">QRT / OFFLINE</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Band</label>
+                    <input type="text" id="admin-band-input" onchange="updateStationParams()" class="w-full bg-tactical-900 border border-slate-800 text-white rounded-lg px-2.5 py-1.5 text-xs font-mono">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Frequency</label>
+                    <input type="text" id="admin-freq-input" onchange="updateStationParams()" class="w-full bg-tactical-900 border border-slate-800 text-white rounded-lg px-2.5 py-1.5 text-xs font-mono">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Mode</label>
+                    <select id="admin-mode-select" onchange="updateStationParams()" class="w-full bg-tactical-900 border border-slate-800 text-white rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+                        <option value="SSB">SSB</option>
+                        <option value="FT8">FT8</option>
+                        <option value="CW">CW</option>
+                        <option value="FT4">FT4</option>
+                        <option value="AM">AM</option>
+                        <option value="FM">FM</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-800/40 p-4 rounded-xl border border-slate-800">
+            <div class="space-y-0.5">
+                <span class="text-xs font-bold text-white block">Active Queue Controls</span>
+                <span class="text-[11px] text-slate-400">Call next station or log current QSO</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="callNextStation()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-md">
+                    <i class="fa-solid fa-bullhorn"></i>
+                    <span>Call Next Station</span>
+                </button>
+                <button onclick="logCurrentContact()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-md">
+                    <i class="fa-solid fa-check"></i>
+                    <span>Log Current QSO</span>
+                </button>
+                <button onclick="clearCurrentContact()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-lg text-xs font-medium">
+                    Clear Active
+                </button>
+            </div>
+        </div>
+
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Manage Queue (<span id="admin-queue-count">0</span>)</h4>
+                <button onclick="openManualAddModal()" class="text-xs text-blue-400 hover:text-blue-300 flex items-center space-x-1 font-semibold">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Manual Add Callsign</span>
+                </button>
+            </div>
+
+            <div class="border border-slate-800 rounded-xl overflow-hidden">
+                <div class="max-h-52 overflow-y-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-tactical-950 text-slate-400 font-semibold sticky top-0 border-b border-slate-800">
+                            <tr>
+                                <th class="py-2.5 px-3">Callsign</th>
+                                <th class="py-2.5 px-3">Grid</th>
+                                <th class="py-2.5 px-3">RST</th>
+                                <th class="py-2.5 px-3">Mode/Band</th>
+                                <th class="py-2.5 px-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-queue-tbody" class="divide-y divide-slate-800/60 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-tactical-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <i class="fa-solid fa-key text-amber-400"></i>
+                <span>Admin Password Management</span>
+            </h4>
+            <form onsubmit="handlePasswordChange(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Current PIN</label>
+                    <input type="password" id="pw-old" required placeholder="Current PIN" class="w-full bg-tactical-900 border border-slate-800 text-white rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">New PIN</label>
+                    <input type="password" id="pw-new" required placeholder="New PIN" class="w-full bg-tactical-900 border border-slate-800 text-white rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none focus:border-blue-500">
+                </div>
+                <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Update Passcode</span>
+                </button>
+            </form>
+        </div>
+
+        <div class="border-t border-slate-800 pt-4 flex flex-wrap items-center justify-between gap-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Export Log File:</span>
+            <div class="flex space-x-2">
+                <button onclick="exportLogs('csv')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg border border-slate-700 font-mono text-slate-200 flex items-center space-x-1">
+                    <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                    <span>Export CSV</span>
+                </button>
+                <button onclick="exportLogs('adif')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg border border-slate-700 font-mono text-slate-200 flex items-center space-x-1">
+                    <i class="fa-solid fa-file-code text-blue-400"></i>
+                    <span>Export ADIF</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ================= APP SCRIPT ================= -->
+<script>
+/* ------------------------------------------------------------------
+   DX Helper — front-end
+   Talks to api.php for all persistence. Admin PIN is bcrypt-hashed
+   server-side; the client only ever sends the PIN for verification.
+------------------------------------------------------------------ */
+
+const API = 'api.php';
+
+const DEFAULT_STATION_PARAMS = {
+    callsign: "ZL2BB",
+    grid: "RF82BE",
+    rig: "Yaesu FTdx10",
+    band: "20m",
+    freq: "14.225 MHz",
+    mode: "SSB",
+    status: "ONLINE",
+    notice: "Welcome to the official DX queue for ZL2BB. Submit your callsign below to get in line!"
+};
+
+let stationParams  = { ...DEFAULT_STATION_PARAMS };
+let queue          = [];
+let logs           = [];
+let activeContact  = null;
+let adminPin       = sessionStorage.getItem('dx_admin_pin') || null;
+let isAdminLoggedIn = !!adminPin;
+let audioEnabled   = false;
+
+/* ---------- HTTP helpers ---------- */
+async function apiGet(action) {
+    const r = await fetch(`${API}?action=${action}`, { cache: 'no-store' });
+    return r;
+}
+
+async function apiPost(action, payload = null, needAuth = false) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (needAuth && adminPin) headers['X-Admin-Pin'] = adminPin;
+    return fetch(`${API}?action=${action}`, {
+        method: 'POST',
+        headers,
+        body: payload === null ? '{}' : JSON.stringify(payload)
+    });
+}
+
+/* ---------- Load everything from server ---------- */
+async function loadState() {
+    try {
+        const r = await apiGet('load');
+        const d = await r.json();
+        if (d.station) stationParams = { ...DEFAULT_STATION_PARAMS, ...d.station };
+        queue         = Array.isArray(d.queue) ? d.queue : [];
+        logs          = Array.isArray(d.logs)  ? d.logs  : [];
+        activeContact = d.active || null;
+    } catch (e) {
+        console.error('loadState failed', e);
+    }
+    renderHeaderAndParams();
+    renderQueueTable();
+    renderLogsTable();
+    if (isAdminLoggedIn) renderAdminView();
+}
+
+/* ---------- Server-side saves ---------- */
+const saveStation = () => apiPost('saveStation', stationParams, true);
+const saveQueue   = () => apiPost('saveQueue',   queue,          true);
+const saveLogs    = () => apiPost('saveLogs',    logs,           true);
+const saveActive  = () => apiPost('saveActive',  activeContact,  true);
+
+/* ---------- Boot ---------- */
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadState();
+    startClock();
+
+    // Public viewers auto-refresh so they see live queue changes
+    setInterval(() => { if (!isAdminLoggedIn) loadState(); }, 15000);
+
+    // Uppercase callsign + grid inputs
+    document.querySelectorAll('input').forEach(input => {
+        if (input.id.includes('callsign') || input.id.includes('grid')) {
+            input.addEventListener('input', e => {
+                e.target.value = e.target.value.toUpperCase();
+            });
+        }
+    });
+});
+
+/* ---------- Rendering: header / stats ---------- */
+function renderHeaderAndParams() {
+    document.getElementById('nav-callsign').innerText = stationParams.callsign;
+    document.getElementById('nav-grid').innerText     = stationParams.grid;
+    document.getElementById('nav-rig').innerText      = stationParams.rig;
+    document.getElementById('nav-band').innerText     = stationParams.band;
+    document.getElementById('nav-freq').innerText     = stationParams.freq;
+    document.getElementById('nav-mode').innerText     = stationParams.mode;
+
+    document.getElementById('nav-band-mobile').innerText = stationParams.band;
+    document.getElementById('nav-freq-mobile').innerText = stationParams.freq;
+    document.getElementById('nav-mode-mobile').innerText = stationParams.mode;
+
+    const statusBadge = document.getElementById('nav-status-badge');
+    const statusText  = document.getElementById('nav-status-text');
+
+    if (stationParams.status === 'ONLINE') {
+        statusBadge.className = "flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 glow-green";
+        statusText.innerText = "QRV / ONLINE";
+    } else if (stationParams.status === 'PAUSED') {
+        statusBadge.className = "flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        statusText.innerText = "PAUSED / BREAK";
+    } else {
+        statusBadge.className = "flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20";
+        statusText.innerText = "QRT / OFFLINE";
+    }
+
+    document.getElementById('stat-queue-count').innerText = queue.length;
+    document.getElementById('stat-est-wait').innerText    = `${queue.length * 2}m`;
+    document.getElementById('stat-logged-count').innerText = logs.length;
+    document.getElementById('logged-count-badge').innerText = `${logs.length} QSOs`;
+
+    const notice = document.getElementById('station-notice');
+    if (notice && stationParams.notice) notice.innerHTML = stationParams.notice;
+
+    const activeCard = document.getElementById('active-contact-card');
+    if (activeContact) {
+        activeCard.classList.remove('hidden');
+        document.getElementById('active-callsign').innerText = activeContact.callsign;
+        document.getElementById('active-grid').innerText     = activeContact.grid;
+        document.getElementById('active-rst').innerText      = activeContact.rst;
+    } else {
+        activeCard.classList.add('hidden');
+    }
+}
+
+/* ---------- Rendering: queue table ---------- */
+function renderQueueTable() {
+    const tbody = document.getElementById('queue-table-body');
+    const searchQuery = (document.getElementById('queue-search')?.value || '').toLowerCase();
+    const emptyMsg = document.getElementById('queue-empty-msg');
+
+    tbody.innerHTML = '';
+
+    const filtered = queue.filter(q =>
+        q.callsign.toLowerCase().includes(searchQuery) ||
+        q.grid.toLowerCase().includes(searchQuery)
+    );
+
+    if (filtered.length === 0) {
+        emptyMsg.classList.remove('hidden');
+        return;
+    }
+    emptyMsg.classList.add('hidden');
+
+    filtered.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        const isContacting = activeContact && activeContact.id === item.id;
+
+        tr.className = isContacting
+            ? "bg-blue-900/30 font-semibold border-l-4 border-l-blue-500 hover:bg-slate-800/80 transition-colors"
+            : "hover:bg-slate-800/50 transition-colors";
+
+        const elapsedMins = Math.floor((Date.now() - item.timestamp) / 60000);
+
+        let statusHtml = `<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-mono">Waiting</span>`;
+        if (isContacting) {
+            statusHtml = `<span class="px-2 py-0.5 rounded text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold animate-pulse">ON AIR</span>`;
+        }
+
+        tr.innerHTML = `
+            <td class="py-3 px-3 font-mono text-slate-400">#${index + 1}</td>
+            <td class="py-3 px-3 font-bold text-white mono-font text-sm flex items-center space-x-1.5">
+                <span>${escapeHtml(item.callsign)}</span>
+                ${item.notes ? `<i class="fa-regular fa-comment-dots text-slate-500 text-xs" title="${escapeHtml(item.notes)}"></i>` : ''}
+            </td>
+            <td class="py-3 px-3 font-mono text-slate-300 uppercase">${escapeHtml(item.grid)}</td>
+            <td class="py-3 px-3 font-mono text-emerald-400">${escapeHtml(item.rst)}</td>
+            <td class="py-3 px-3 font-mono text-slate-300">${escapeHtml(item.mode)} / ${escapeHtml(item.band)}</td>
+            <td class="py-3 px-3 text-slate-400 font-mono text-[11px]">${elapsedMins}m ago</td>
+            <td class="py-3 px-3">${statusHtml}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/* ---------- Rendering: recent logs ---------- */
+function renderLogsTable() {
+    const tbody = document.getElementById('recent-logs-body');
+    tbody.innerHTML = '';
+
+    if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-slate-600">No QSOs logged yet.</td></tr>`;
+        return;
+    }
+
+    logs.slice(0, 10).forEach(log => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-800/30";
+        const timeFormatted = new Date(log.time).toISOString().substring(11, 16);
+
+        tr.innerHTML = `
+            <td class="py-2 px-3 text-slate-400">${timeFormatted}z</td>
+            <td class="py-2 px-3 font-bold text-slate-200">${escapeHtml(log.callsign)}</td>
+            <td class="py-2 px-3 text-slate-400">${escapeHtml(log.grid)}</td>
+            <td class="py-2 px-3 text-blue-400">${escapeHtml(log.band)}</td>
+            <td class="py-2 px-3 text-amber-400">${escapeHtml(log.mode)}</td>
+            <td class="py-2 px-3 text-emerald-400">${escapeHtml(log.rstSent)} / ${escapeHtml(log.rstRcvd)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/* ---------- Public: join queue ---------- */
+async function handleJoinQueue(e) {
+    e.preventDefault();
+
+    if (stationParams.status === 'QRT') {
+        showToast("Station is currently QRT / Offline.", "error");
+        return;
+    }
+
+    const payload = {
+        callsign: document.getElementById('input-callsign').value.trim().toUpperCase(),
+        grid:     document.getElementById('input-grid').value.trim().toUpperCase(),
+        rst:      document.getElementById('input-rst').value.trim(),
+        band:     document.getElementById('input-band').value,
+        mode:     document.getElementById('input-mode').value,
+        notes:    document.getElementById('input-notes').value.trim()
+    };
+
+    if (!payload.callsign || !payload.grid) {
+        showToast("Callsign and Grid required!", "error");
+        return;
+    }
+
+    const r = await apiPost('join', payload);
+    const d = await r.json();
+
+    if (!r.ok) {
+        showToast(d.error || 'Failed to join queue', "error");
+        return;
+    }
+
+    document.getElementById('join-queue-form').reset();
+    document.getElementById('input-rst').value = "59";
+
+    showToast(`Added ${payload.callsign} to queue!`);
+    speakAnnouncement(`Callsign ${payload.callsign} joined queue.`);
+    await loadState();
+}
+
+/* ---------- Admin modal ---------- */
+function openAdminModal() {
+    document.getElementById('admin-modal').classList.remove('hidden');
+    if (isAdminLoggedIn) {
+        document.getElementById('admin-login-card').classList.add('hidden');
+        document.getElementById('admin-panel-card').classList.remove('hidden');
+        renderAdminView();
+    } else {
+        document.getElementById('admin-login-card').classList.remove('hidden');
+        document.getElementById('admin-panel-card').classList.add('hidden');
+        document.getElementById('admin-pin-input').value = '';
+        document.getElementById('admin-pin-input').focus();
+    }
+}
+
+function closeAdminModal() {
+    document.getElementById('admin-modal').classList.add('hidden');
+}
+
+async function handleAdminLogin(e) {
+    e.preventDefault();
+    const pin = document.getElementById('admin-pin-input').value;
+
+    const r = await apiPost('login', { pin });
+    if (!r.ok) {
+        showToast("Incorrect PIN Passcode", "error");
+        return;
+    }
+
+    adminPin = pin;
+    isAdminLoggedIn = true;
+    sessionStorage.setItem('dx_admin_pin', pin);
+
+    document.getElementById('admin-login-card').classList.add('hidden');
+    document.getElementById('admin-panel-card').classList.remove('hidden');
+    renderAdminView();
+    showToast("Authenticated as Station Operator");
+}
+
+function logoutAdmin() {
+    isAdminLoggedIn = false;
+    adminPin = null;
+    sessionStorage.removeItem('dx_admin_pin');
+    closeAdminModal();
+    showToast("Logged out");
+}
+
+async function handlePasswordChange(e) {
+    e.preventDefault();
+    const oldPw = document.getElementById('pw-old').value;
+    const newPw = document.getElementById('pw-new').value;
+
+    if (oldPw !== adminPin) {
+        showToast("Current password invalid!", "error");
+        return;
+    }
+    if (!newPw || newPw.length < 3) {
+        showToast("New password must be at least 3 chars", "error");
+        return;
+    }
+
+    const r = await apiPost('changePassword', { new: newPw }, true);
+    if (!r.ok) {
+        showToast("Password update failed", "error");
+        return;
+    }
+
+    adminPin = newPw;
+    sessionStorage.setItem('dx_admin_pin', newPw);
+    document.getElementById('pw-old').value = '';
+    document.getElementById('pw-new').value = '';
+    showToast("Admin Password updated successfully!");
+}
+
+function triggerPasswordReset() {
+    showToast("Delete dx_data.json on the server to reset PIN to 1234", "error");
+}
+
+/* ---------- Admin view ---------- */
+function renderAdminView() {
+    if (!isAdminLoggedIn) return;
+
+    document.getElementById('admin-status-select').value = stationParams.status;
+    document.getElementById('admin-band-input').value     = stationParams.band;
+    document.getElementById('admin-freq-input').value     = stationParams.freq;
+    document.getElementById('admin-mode-select').value    = stationParams.mode;
+
+    const tbody = document.getElementById('admin-queue-tbody');
+    tbody.innerHTML = '';
+    document.getElementById('admin-queue-count').innerText = queue.length;
+
+    queue.forEach(item => {
+        const tr = document.createElement('tr');
+        const isContacting = activeContact && activeContact.id === item.id;
+        tr.className = isContacting ? "bg-blue-900/40" : "hover:bg-slate-800/40";
+
+        tr.innerHTML = `
+            <td class="py-2 px-3 font-bold text-white mono-font">${escapeHtml(item.callsign)}</td>
+            <td class="py-2 px-3 font-mono">${escapeHtml(item.grid)}</td>
+            <td class="py-2 px-3 font-mono text-emerald-400">${escapeHtml(item.rst)}</td>
+            <td class="py-2 px-3 font-mono">${escapeHtml(item.mode)} / ${escapeHtml(item.band)}</td>
+            <td class="py-2 px-3 text-right space-x-1">
+                <button onclick="makeActiveContact('${item.id}')" title="Call on air" class="px-2 py-1 bg-blue-600/30 hover:bg-blue-600 text-blue-300 rounded text-xs">
+                    <i class="fa-solid fa-phone"></i>
+                </button>
+                <button onclick="removeFromQueue('${item.id}')" title="Delete" class="px-2 py-1 bg-rose-600/30 hover:bg-rose-600 text-rose-300 rounded text-xs">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/* ---------- Admin actions ---------- */
+async function updateStationStatus() {
+    stationParams.status = document.getElementById('admin-status-select').value;
+    await saveStation();
+    renderHeaderAndParams();
+    showToast(`Status changed to ${stationParams.status}`);
+}
+
+async function updateStationParams() {
+    stationParams.band = document.getElementById('admin-band-input').value;
+    stationParams.freq = document.getElementById('admin-freq-input').value;
+    stationParams.mode = document.getElementById('admin-mode-select').value;
+    await saveStation();
+    renderHeaderAndParams();
+    showToast("Station parameters updated!");
+}
+
+async function callNextStation() {
+    if (queue.length === 0) {
+        showToast("No callers in queue!", "error");
+        return;
+    }
+    activeContact = queue[0];
+    await saveActive();
+    renderHeaderAndParams();
+    renderQueueTable();
+    renderAdminView();
+    speakAnnouncement(`Calling station ${activeContact.callsign}`);
+    showToast(`Calling ${activeContact.callsign}!`);
+}
+
+async function makeActiveContact(id) {
+    const selected = queue.find(q => q.id === id);
+    if (!selected) return;
+    activeContact = selected;
+    await saveActive();
+    renderHeaderAndParams();
+    renderQueueTable();
+    renderAdminView();
+    speakAnnouncement(`Calling station ${selected.callsign}`);
+    showToast(`Calling ${selected.callsign}`);
+}
+
+async function logCurrentContact() {
+    if (!activeContact) {
+        showToast("No active contact to log!", "error");
+        return;
+    }
+
+    const newLog = {
+        id: 'log_' + Date.now(),
+        time: new Date().toISOString(),
+        callsign: activeContact.callsign,
+        grid: activeContact.grid,
+        band: activeContact.band || stationParams.band,
+        mode: activeContact.mode || stationParams.mode,
+        rstSent: "59",
+        rstRcvd: activeContact.rst || "59"
+    };
+
+    logs.unshift(newLog);
+    queue = queue.filter(q => q.id !== activeContact.id);
+    activeContact = null;
+
+    await saveLogs();
+    await saveQueue();
+    await saveActive();
+
+    renderHeaderAndParams();
+    renderQueueTable();
+    renderLogsTable();
+    renderAdminView();
+    showToast(`Logged QSO for ${newLog.callsign}!`);
+}
+
+async function clearCurrentContact() {
+    activeContact = null;
+    await saveActive();
+    renderHeaderAndParams();
+    renderQueueTable();
+    renderAdminView();
+    showToast("Cleared active contact");
+}
+
+async function removeFromQueue(id) {
+    if (activeContact && activeContact.id === id) {
+        activeContact = null;
+        await saveActive();
+    }
+    queue = queue.filter(q => q.id !== id);
+    await saveQueue();
+    renderHeaderAndParams();
+    renderQueueTable();
+    renderAdminView();
+    showToast("Removed station from queue.");
+}
+
+async function openManualAddModal() {
+    const callsign = prompt("Enter Callsign:")?.toUpperCase();
+    if (!callsign) return;
+    const grid = (prompt("Enter Grid Square:", "FN31") || "FN31").toUpperCase();
+
+    queue.push({
+        id: 'q_' + Date.now(),
+        callsign,
+        grid,
+        rst: "59",
+        band: stationParams.band,
+        mode: stationParams.mode,
+        timestamp: Date.now()
+    });
+
+    await saveQueue();
+    renderHeaderAndParams();
+    renderQueueTable();
+    renderAdminView();
+    showToast(`Added ${callsign} to queue.`);
+}
+
+/* ---------- Reset demo data ---------- */
+async function resetDemoData() {
+    if (!isAdminLoggedIn) {
+        showToast("Log in as operator first", "error");
+        return;
+    }
+    if (!confirm("Reset station data and logs back to default state?")) return;
+
+    const r = await apiPost('reset', null, true);
+    if (!r.ok) {
+        showToast("Reset failed", "error");
+        return;
+    }
+    showToast("Demo data reset!");
+    await loadState();
+}
+
+/* ---------- Export ---------- */
+function exportLogs(format) {
+    if (logs.length === 0) {
+        showToast("No logs to export!", "error");
+        return;
+    }
+
+    let content = "";
+    let filename = `QSO_Log_${stationParams.callsign.replace('/', '_')}_${new Date().toISOString().substring(0, 10)}`;
+
+    if (format === 'csv') {
+        content = "TIME_UTC,CALLSIGN,GRID,BAND,MODE,RST_SENT,RST_RCVD\n";
+        logs.forEach(l => {
+            content += `"${l.time}","${l.callsign}","${l.grid}","${l.band}","${l.mode}","${l.rstSent}","${l.rstRcvd}"\n`;
+        });
+        filename += ".csv";
+    } else if (format === 'adif') {
+        content = "ADIF Export - DX Helper Station\n<EOH>\n";
+        logs.forEach(l => {
+            const dateObj = new Date(l.time);
+            const qsoDate = dateObj.toISOString().replaceAll('-','').substring(0,8);
+            const qsoTime = dateObj.toISOString().replaceAll(':','').substring(11,15);
+            content += `<CALL:${l.callsign.length}>${l.callsign} <GRIDSQUARE:${l.grid.length}>${l.grid} <BAND:${l.band.length}>${l.band} <MODE:${l.mode.length}>${l.mode} <RST_SENT:${l.rstSent.length}>${l.rstSent} <RST_RCVD:${l.rstRcvd.length}>${l.rstRcvd} <QSO_DATE:8>${qsoDate} <TIME_ON:4>${qsoTime} <EOR>\n`;
+        });
+        filename += ".adi";
+    }
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${logs.length} QSOs to ${format.toUpperCase()}`);
+}
+
+/* ---------- Audio announcements ---------- */
+function toggleAudioAlert() {
+    audioEnabled = !audioEnabled;
+    const icon = document.getElementById('audio-icon');
+    if (audioEnabled) {
+        icon.className = "fa-solid fa-volume-high text-emerald-400";
+        showToast("Audio alerts enabled");
+        speakAnnouncement("Audio alerts activated.");
+    } else {
+        icon.className = "fa-solid fa-volume-xmark text-slate-400";
+        showToast("Audio alerts muted");
+    }
+}
+
+function speakAnnouncement(text) {
+    if (!audioEnabled || !('speechSynthesis' in window)) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+}
+
+/* ---------- Toast ---------- */
+function showToast(message, type = "success") {
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toast-message');
+    const toastIcon = document.getElementById('toast-icon');
+
+    toastMsg.innerText = message;
+    toastIcon.className = type === "error"
+        ? "fa-solid fa-circle-exclamation text-rose-400 text-lg"
+        : "fa-solid fa-circle-check text-emerald-400 text-lg";
+
+    toast.classList.remove('translate-y-20', 'opacity-0');
+    setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+    }, 3000);
+}
+
+/* ---------- Misc ---------- */
+function startClock() {
+    const tick = () => {
+        const now = new Date();
+        const utcString = now.toUTCString().split(' ')[4] + ' UTC';
+        document.getElementById('footer-time').innerText = utcString;
+    };
+    tick();
+    setInterval(tick, 1000);
+}
+
+/* Prevent XSS from user-submitted callsigns / notes / grids */
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+</script>
+</body>
+</html>
